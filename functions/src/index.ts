@@ -4,13 +4,13 @@ import * as express from "express";
 import * as cors from "cors";
 import * as bodyParser from "body-parser";
 import { routesConfig } from "./users/routes-config";
+import { Roles } from "./auth/authorized";
 const nodemailer = require("nodemailer");
 
 admin.initializeApp();
 
 const app = express();
 app.use(bodyParser.json());
-app.use(cors({ origin: true }));
 app.use(cors({ origin: true }));
 routesConfig(app);
 export const api = functions.https.onRequest(app);
@@ -41,21 +41,37 @@ export const sendMailForFunctions = functions.https.onCall(
     };
 
     // returning result
-    return new Promise((resolve, reject) => {
-      transporter.sendMail(mailOptions, async (error: any, info: any) => {
-        if (error) {
-          console.log(error);
-          reject({
-            message: error,
-            isError: true
+    return new Promise(async (resolve, reject) => {
+      const decodedToken: admin.auth.DecodedIdToken = await admin
+        .auth()
+        .verifyIdToken(data.token);
+      console.log(decodedToken);
+      if (
+        decodedToken.uid === "JzGggddseEguIiuyY93mEtcsKL32" ||
+        decodedToken.role === Roles.Admin
+      ) {
+        transporter.sendMail(mailOptions, async (error: any, info: any) => {
+          if (error) {
+            console.log(error);
+            reject({
+              message: error,
+              isError: true
+            });
+          }
+          console.log("Email sent");
+          resolve({
+            message: "Email sent!!",
+            isError: false
           });
-        }
-        console.log("Email sent");
-        resolve({
-          message: "Email sent!!",
-          isError: false
         });
-      });
+      } else {
+        console.log(`User ${decodedToken.uid} not authorised to send invite`);
+        reject({
+          status: 400,
+          isError: true,
+          message: "You are not authorised to send invite"
+        });
+      }
     });
   }
 );

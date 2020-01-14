@@ -7,7 +7,7 @@ export async function isAuthenticated(
   next: Function
 ) {
   const { authorization } = req.headers;
-
+  console.log(req.headers);
   if (!authorization) return res.status(401).send({ message: "Unauthorized" });
 
   if (!authorization.startsWith("Bearer"))

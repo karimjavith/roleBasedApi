@@ -1,7 +1,10 @@
 import { Request, Response } from "express";
-
+export enum Roles {
+  Admin = 1 << 0,
+  User = 1 << 1
+}
 export function isAuthorized(opts: {
-  hasRole: Array<"admin" | "manager" | "user">;
+  hasRole: Array<Roles>;
   allowSameUser?: boolean;
 }) {
   return (req: Request, res: Response, next: Function) => {

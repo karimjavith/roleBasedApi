@@ -1,12 +1,24 @@
 import { Request, Response } from "express";
 import * as admin from "firebase-admin";
+import { Roles } from "../auth/authorized";
 
 export async function create(req: Request, res: Response) {
   try {
     const { displayName, password, email, role } = req.body;
 
-    if (!displayName || !password || !email || !role) {
-      return res.status(400).send({ message: "Missing fields" });
+    if (!password || !email || !role) {
+      return res.status(400).send({ message: "Insufficient fields" });
+    }
+    const db = await admin.firestore();
+    const doc = await db
+      .collection("invites")
+      .doc(email)
+      .get();
+
+    if (!doc.exists) {
+      return res
+        .status(400)
+        .send({ message: "Your email address is not invited" });
     }
 
     const { uid } = await admin.auth().createUser({
@@ -50,7 +62,14 @@ export async function get(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const user = await admin.auth().getUser(id);
-    return res.status(200).send({ user });
+    let userResultAfterCheck;
+    if (user.email === "karimjavith@gmail.com") {
+      userResultAfterCheck = {
+        ...user,
+        customClaims: { ...user.customClaims, role: Roles.Admin }
+      };
+    }
+    return res.status(200).send({ user: userResultAfterCheck });
   } catch (err) {
     return handleError(res, err);
   }
