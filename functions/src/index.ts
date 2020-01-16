@@ -3,7 +3,8 @@ import * as admin from "firebase-admin";
 import * as express from "express";
 import * as cors from "cors";
 import * as bodyParser from "body-parser";
-import { routesConfig } from "./users/routes-config";
+import { routesConfig as userRoutes } from "./users/routes-config";
+import { routesConfig as matchesRoutes } from "./matches/routes-config";
 import { Roles } from "./auth/authorized";
 const nodemailer = require("nodemailer");
 
@@ -12,12 +13,13 @@ admin.initializeApp();
 const app = express();
 app.use(bodyParser.json());
 app.use(cors({ origin: true }));
-routesConfig(app);
+userRoutes(app);
+matchesRoutes(app);
 export const api = functions.https.onRequest(app);
 /**
  * Here we're using Gmail to send
  */
-let transporter = nodemailer.createTransport({
+const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: "karim.dev.2020@gmail.com",
@@ -46,10 +48,7 @@ export const sendMailForFunctions = functions.https.onCall(
         .auth()
         .verifyIdToken(data.token);
       console.log(decodedToken);
-      if (
-        decodedToken.uid === "JzGggddseEguIiuyY93mEtcsKL32" ||
-        decodedToken.role === Roles.Admin
-      ) {
+      if (decodedToken.role === Roles.Admin) {
         transporter.sendMail(mailOptions, async (error: any, info: any) => {
           if (error) {
             console.log(error);

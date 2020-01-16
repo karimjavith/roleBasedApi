@@ -1,16 +1,17 @@
 import { Application } from "express";
-import { create, all, get, patch, remove } from "./controller";
+import { create, all, get, patch, remove, verifyIdToken } from "./controller";
 import { isAuthenticated } from "../auth/authenticated";
 import { isAuthorized, Roles } from "../auth/authorized";
 
 export function routesConfig(app: Application) {
+  app.get("/users/verifyIdToken", [verifyIdToken]);
   app.post(
-    "/createUser",
+    "/users/create",
     isAuthenticated,
     isAuthorized({ hasRole: [Roles.Admin, Roles.User] }),
     create
   );
-  app.post("/signup", [create]);
+  app.post("/users/signup", [create]);
   // lists all users
   app.get("/users", [
     isAuthenticated,

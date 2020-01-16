@@ -1,12 +1,26 @@
 import { Request, Response } from "express";
 import * as admin from "firebase-admin";
-import { Roles } from "../auth/authorized";
+
+export async function verifyIdToken(req: Request, res: Response) {
+  try {
+    const { authorization } = req.headers;
+    const split = authorization?.split("Bearer ");
+    if (split?.length !== 2)
+      return res.status(401).send({ message: "Unauthorized" });
+
+    const token = split[1];
+    await admin.auth().verifyIdToken(token, true);
+    return res.status(200).send({ verified: true });
+  } catch (err) {
+    return handleError(res, err);
+  }
+}
 
 export async function create(req: Request, res: Response) {
   try {
-    const { displayName, password, email, role } = req.body;
+    const { displayName, password, email, role, pushToken } = req.body;
 
-    if (!password || !email || !role) {
+    if (!displayName || !password || !email || !role) {
       return res.status(400).send({ message: "Insufficient fields" });
     }
     const db = await admin.firestore();
@@ -26,7 +40,7 @@ export async function create(req: Request, res: Response) {
       password,
       email
     });
-    await admin.auth().setCustomUserClaims(uid, { role });
+    await admin.auth().setCustomUserClaims(uid, { role, pushToken });
 
     return res.status(201).send({ uid });
   } catch (err) {
@@ -38,10 +52,10 @@ export async function all(req: Request, res: Response) {
   try {
     const listUsers = await admin.auth().listUsers();
     const users = listUsers.users.map(user => {
-      const customClaims = (user.customClaims || { role: "" }) as {
-        role?: string;
+      const customClaims = (user.customClaims || { role: 0 }) as {
+        role?: number;
       };
-      const role = customClaims.role ? customClaims.role : "";
+      const role = customClaims.role ? customClaims.role : 1 << 0;
       return {
         uid: user.uid,
         email: user.email,
@@ -62,14 +76,7 @@ export async function get(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const user = await admin.auth().getUser(id);
-    let userResultAfterCheck;
-    if (user.email === "karimjavith@gmail.com") {
-      userResultAfterCheck = {
-        ...user,
-        customClaims: { ...user.customClaims, role: Roles.Admin }
-      };
-    }
-    return res.status(200).send({ user: userResultAfterCheck });
+    return res.status(200).send({ user });
   } catch (err) {
     return handleError(res, err);
   }
@@ -78,15 +85,13 @@ export async function get(req: Request, res: Response) {
 export async function patch(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { displayName, password, email, role } = req.body;
+    const { displayName, role } = req.body;
 
-    if (!id || !displayName || !password || !email || !role) {
+    if (!id || !displayName || !role) {
       return res.status(400).send({ message: "Missing fields" });
     }
 
-    const user = await admin
-      .auth()
-      .updateUser(id, { displayName, password, email });
+    const user = await admin.auth().updateUser(id, { displayName });
     await admin.auth().setCustomUserClaims(id, { role });
     return res.status(204).send({ user });
   } catch (err) {
