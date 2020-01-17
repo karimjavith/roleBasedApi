@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as admin from "firebase-admin";
+import { Roles } from "../auth/authorized";
 
 export async function verifyIdToken(req: Request, res: Response) {
   try {
@@ -9,8 +10,14 @@ export async function verifyIdToken(req: Request, res: Response) {
       return res.status(401).send({ message: "Unauthorized" });
 
     const token = split[1];
-    await admin.auth().verifyIdToken(token, true);
-    return res.status(200).send({ verified: true });
+    const user = await admin.auth().verifyIdToken(token, true);
+    return res.status(200).send({
+      verified: true,
+      user: {
+        uid: user.uid,
+        role: user.role
+      }
+    });
   } catch (err) {
     return handleError(res, err);
   }
@@ -53,9 +60,9 @@ export async function all(req: Request, res: Response) {
     const listUsers = await admin.auth().listUsers();
     const users = listUsers.users.map(user => {
       const customClaims = (user.customClaims || { role: 0 }) as {
-        role?: number;
+        role?: Roles;
       };
-      const role = customClaims.role ? customClaims.role : 1 << 0;
+      const role = customClaims.role;
       return {
         uid: user.uid,
         email: user.email,
@@ -92,8 +99,36 @@ export async function patch(req: Request, res: Response) {
     }
 
     const user = await admin.auth().updateUser(id, { displayName });
-    await admin.auth().setCustomUserClaims(id, { role });
+    const customClaims = (user.customClaims || { role: 0, pushToken: "" }) as {
+      role?: Roles;
+      pushToken?: String;
+    };
+    await admin.auth().setCustomUserClaims(id, {
+      role,
+      pushToken: customClaims.pushToken
+    });
     return res.status(204).send({ user });
+  } catch (err) {
+    return handleError(res, err);
+  }
+}
+export async function patchPushToken(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { pushToken } = req.body;
+
+    if (!pushToken) {
+      return res.status(400).send({ message: "Missing fields" });
+    }
+    const user = await admin.auth().getUser(id);
+    const customClaims = (user.customClaims || { role: 0, pushToken: "" }) as {
+      role?: Roles;
+      pushToken?: String;
+    };
+    await admin
+      .auth()
+      .setCustomUserClaims(id, { pushToken, role: customClaims.role });
+    return res.status(204).send({ message: "Updated the push token" });
   } catch (err) {
     return handleError(res, err);
   }

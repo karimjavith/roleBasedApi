@@ -9,6 +9,12 @@ type TMessage = {
   tokens: Array<string>;
 };
 
+enum Availability {
+  YES = 1 << 0,
+  NO = 1 << 1,
+  NOTRESPONDED = 1 << 2
+}
+
 async function sendPushNotification(message: TMessage) {
   const pushNotifyResult = await admin.messaging().sendMulticast(message);
   console.log(
@@ -41,29 +47,50 @@ async function sendPushNotification(message: TMessage) {
 
 export async function create(req: Request, res: Response) {
   try {
-    const { venue, date, address, time, status, squad, opponent } = req.body;
+    const { venue, date, address, time, status, opponent } = req.body;
 
     if (!venue || !date || !time) {
       return res.status(400).send({ message: "Insufficient fields" });
     }
     const data = {
+      id: date.replace(/\//g, "") + time.replace(/:/g, ""),
       venue,
       date,
       address,
       time,
       status,
-      squad, // {player: {token: xxxxx, status: yes = 1 | no = 2 | snoozed = 8 | notResponded* = 4 | notPlayed}}
       opponent,
       createdTime: admin.firestore.Timestamp.now()
         .toDate()
         .toUTCString()
     };
+
+    // getUsersToken
+    const listUsers = await admin.auth().listUsers();
+    let squad = {};
+    listUsers.users.forEach(user => {
+      const customClaims = (user.customClaims || { pushToken: "" }) as {
+        pushToken?: string;
+      };
+      const pushToken = customClaims.pushToken;
+      squad = {
+        ...squad,
+        [user.uid]: {
+          pushToken,
+          status: Availability.NOTRESPONDED,
+          displayName: user.displayName
+        }
+      };
+    });
+
+    console.log(squad);
+
     const db = await admin.firestore();
     try {
       const setDoc = await db
         .collection("matches")
-        .doc(date)
-        .set(data);
+        .doc(data.id)
+        .set({ ...data, squad });
       console.log(setDoc.writeTime);
       const tokens = Object.values(squad).map(
         (result: any) => result.pushToken
@@ -97,10 +124,15 @@ export async function create(req: Request, res: Response) {
 export async function all(req: Request, res: Response) {
   try {
     const { id } = req.params;
+    if (!id) {
+      return res
+        .status(400)
+        .send({ message: `Missing field id --- value ${id}` });
+    }
     const db = await admin.firestore();
     const listMatches = await db
       .collection("matches")
-      .orderBy("createdTime")
+      .orderBy("createdTime", "desc")
       .get();
     if (listMatches.empty) {
       return res.status(200).send({ count: 0 });
@@ -112,6 +144,7 @@ export async function all(req: Request, res: Response) {
         status: data.status,
         time: data.time,
         date: data.date,
+        id: data.id,
         venue: data.venue,
         opponent: data.opponent,
         myStatus: data.squad[id].status
@@ -165,7 +198,7 @@ export async function getUnreadMatchCount(req: Request, res: Response) {
     let count = 0;
     listMatches.forEach(doc => {
       const data = doc.data();
-      data.squad[id].status === 4 && count++;
+      data.squad[id].status === Availability.NOTRESPONDED && count++;
     });
     return res.status(200).send({ count });
   } catch (err) {
@@ -175,7 +208,7 @@ export async function getUnreadMatchCount(req: Request, res: Response) {
 export async function patch(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { venue, date, address, time, status, squad, opponent } = req.body;
+    const { venue, date, address, time, status, opponent } = req.body;
 
     if (!id) {
       return res.status(400).send({ message: "Missing fields" });
@@ -189,10 +222,19 @@ export async function patch(req: Request, res: Response) {
       address,
       time,
       status,
-      squad,
       opponent
     });
     console.log(updateResult.writeTime);
+    // getUsersToken
+    const listUsers = await admin.auth().listUsers();
+    let squad = {};
+    listUsers.users.forEach(user => {
+      const customClaims = (user.customClaims || { pushToken: "" }) as {
+        pushToken?: string;
+      };
+      const pushToken = customClaims.pushToken;
+      squad = { ...squad, [user.uid]: { pushToken } };
+    });
     const tokens = Object.values(squad).map((result: any) => result.pushToken);
     const message = {
       notification: {

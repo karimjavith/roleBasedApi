@@ -1,5 +1,13 @@
 import { Application } from "express";
-import { create, all, get, patch, remove, verifyIdToken } from "./controller";
+import {
+  create,
+  all,
+  get,
+  patch,
+  remove,
+  verifyIdToken,
+  patchPushToken
+} from "./controller";
 import { isAuthenticated } from "../auth/authenticated";
 import { isAuthorized, Roles } from "../auth/authorized";
 
@@ -29,6 +37,12 @@ export function routesConfig(app: Application) {
     isAuthenticated,
     isAuthorized({ hasRole: [Roles.Admin], allowSameUser: true }),
     patch
+  ]);
+  // updates pushtoken for :id user
+  app.patch("/users/pushToken/:id", [
+    isAuthenticated,
+    isAuthorized({ hasRole: [Roles.Admin, Roles.User], allowSameUser: true }),
+    patchPushToken
   ]);
   // deletes :id user
   app.delete("/users/:id", [

@@ -6,7 +6,8 @@ import {
   getMatchDetailsForUser,
   getUnreadMatchCount,
   patch,
-  remove
+  remove,
+  patchUserStatus
 } from "./controller";
 import { isAuthenticated } from "../auth/authenticated";
 import { isAuthorized, Roles } from "../auth/authorized";
@@ -24,7 +25,7 @@ export function routesConfig(app: Application) {
     isAuthorized({ hasRole: [Roles.Admin, Roles.User] }),
     all
   ]);
-  // get match with :id
+  // get match with :id for admin
   app.get("/matches/:id", [
     isAuthenticated,
     isAuthorized({ hasRole: [Roles.Admin], allowSameUser: true }),
@@ -36,17 +37,23 @@ export function routesConfig(app: Application) {
     isAuthorized({ hasRole: [Roles.User], allowSameUser: true }),
     getMatchDetailsForUser
   ]);
-  // get :id user
+  // get unreadcount for :id user
   app.get("/matches/unreadCount/:id", [
     isAuthenticated,
     isAuthorized({ hasRole: [Roles.Admin, Roles.User], allowSameUser: true }),
     getUnreadMatchCount
   ]);
-  // updates :id user
+  // updates match details by :id user admin
   app.patch("/matches/:id", [
     isAuthenticated,
     isAuthorized({ hasRole: [Roles.Admin], allowSameUser: true }),
     patch
+  ]);
+  // updates match user status by :id user, admin
+  app.patch("/matches/details/update/:id", [
+    isAuthenticated,
+    isAuthorized({ hasRole: [Roles.Admin, Roles.User], allowSameUser: true }),
+    patchUserStatus
   ]);
   // deletes :id user
   app.delete("/matches/:id", [
