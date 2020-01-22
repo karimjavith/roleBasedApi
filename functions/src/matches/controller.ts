@@ -142,12 +142,13 @@ export async function all(req: Request, res: Response) {
       const data = doc.data();
       allMatches[doc.id] = {
         status: data.status,
+        postCode: data.address,
         time: data.time,
         date: data.date,
         id: data.id,
         venue: data.venue,
         opponent: data.opponent,
-        myStatus: data.squad[id].status
+        myStatus: data.squad[id] ? data.squad[id].status : 1 << 2
       };
     });
     return res.status(200).send({
@@ -178,7 +179,9 @@ export async function getMatchDetailsForUser(req: Request, res: Response) {
     return res.status(200).send({
       data: {
         ...matchDetails,
-        myStatus: matchDetails?.squad[uid].status,
+        myStatus: matchDetails?.squad[uid]
+          ? matchDetails?.squad[uid].status
+          : 1 << 2,
         squad: null
       }
     });
@@ -239,7 +242,7 @@ export async function patch(req: Request, res: Response) {
     const message = {
       notification: {
         title: `Camels vs. ${opponent}`,
-        body: "Set your availability."
+        body: "Updated! Set your availability."
       },
       tokens
     };
@@ -267,6 +270,7 @@ export async function patchUserStatus(req: Request, res: Response) {
       squad: {
         ...matchDetails?.squad,
         [uid]: {
+          ...matchDetails?.squad[uid],
           status
         }
       }
