@@ -53,7 +53,9 @@ export async function create(req: Request, res: Response) {
       return res.status(400).send({ message: "Insufficient fields" });
     }
     const data = {
-      id: date.replace(/\//g, "") + time.replace(/:/g, ""),
+      id:
+        new Date(date).toLocaleDateString().replace(/-/g, "") +
+        time.replace(/:/g, ""),
       venue,
       date,
       address,
@@ -61,6 +63,9 @@ export async function create(req: Request, res: Response) {
       status,
       opponent,
       createdTime: admin.firestore.Timestamp.now()
+        .toDate()
+        .toUTCString(),
+      updatedTime: admin.firestore.Timestamp.now()
         .toDate()
         .toUTCString()
     };
@@ -219,15 +224,17 @@ export async function patch(req: Request, res: Response) {
 
     const db = await admin.firestore();
     const matchDetails = await db.collection("matches").doc(id);
-    const updateResult = await matchDetails.update({
+    await matchDetails.update({
       venue,
       date,
       address,
       time,
       status,
-      opponent
+      opponent,
+      updatedTime: admin.firestore.Timestamp.now()
+        .toDate()
+        .toUTCString()
     });
-    console.log(updateResult.writeTime);
     // getUsersToken
     const listUsers = await admin.auth().listUsers();
     let squad = {};
