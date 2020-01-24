@@ -5,6 +5,7 @@ import * as cors from "cors";
 import * as bodyParser from "body-parser";
 import { routesConfig as userRoutes } from "./users/routes-config";
 import { routesConfig as matchesRoutes } from "./matches/routes-config";
+import { routesConfig as homeRoutes } from "./home/routes-config";
 import { Roles } from "./auth/authorized";
 const nodemailer = require("nodemailer");
 
@@ -15,6 +16,7 @@ app.use(bodyParser.json());
 app.use(cors({ origin: true }));
 userRoutes(app);
 matchesRoutes(app);
+homeRoutes(app);
 export const api = functions.https.onRequest(app);
 /**
  * Here we're using Gmail to send
