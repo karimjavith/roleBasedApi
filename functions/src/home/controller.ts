@@ -14,18 +14,18 @@ export async function getUpcomingMatchDetails(req: Request, res: Response) {
     const upcomingMatch = await db
       .collection("matches")
       .where(
-        "date",
+        "matchDateWithFormat",
         ">",
         admin.firestore.Timestamp.now()
           .toDate()
-          .toISOString()
       )
-      .orderBy("date", "asc")
+      .orderBy("matchDateWithFormat", "asc")
       .limit(1)
       .get();
     if (upcomingMatch.empty) {
       return res.status(200).send({ count: 0 });
     }
+
     const allMatches: { [key: string]: any } = {};
     upcomingMatch.forEach(doc => {
       const data = doc.data();
@@ -45,6 +45,7 @@ export async function getUpcomingMatchDetails(req: Request, res: Response) {
       count: 1
     });
   } catch (err) {
+    console.log(err)
     return handleError(res, err);
   }
 }
