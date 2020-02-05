@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as admin from "firebase-admin";
+import { UserRecord } from "firebase-functions/lib/providers/auth";
 
 type TMessage = {
   notification: {
@@ -49,15 +50,16 @@ export async function create(req: Request, res: Response) {
   try {
     const { venue, date, address, time, status, opponent } = req.body;
 
-    if (!venue || !date || !time) {
+    if (!venue || !date || !time || !opponent) {
       return res.status(400).send({ message: "Insufficient fields" });
     }
+    const matchDateWithFormat = new Date(date.split('/')[0], date.split('/')[1], date.split('/')[2])
     const data = {
       id:
-        new Date(date).toLocaleDateString().replace(/-/g, "") +
-        time.replace(/:/g, ""),
+        `${new Date(date).toLocaleDateString().replace(/-/g, "")}${time.replace(/:/g, "")}${opponent.replace(/\s/g, "")}`,
       venue,
       date,
+      matchDateWithFormat,
       address,
       time,
       status,
@@ -87,8 +89,6 @@ export async function create(req: Request, res: Response) {
         }
       };
     });
-
-    console.log(squad);
 
     const db = await admin.firestore();
     try {
@@ -137,7 +137,7 @@ export async function all(req: Request, res: Response) {
     const db = await admin.firestore();
     const listMatches = await db
       .collection("matches")
-      .orderBy("createdTime", "desc")
+      .orderBy("matchDateWithFormat", "desc")
       .get();
     if (listMatches.empty) {
       return res.status(200).send({ count: 0 });
@@ -238,7 +238,7 @@ export async function patch(req: Request, res: Response) {
     // getUsersToken
     const listUsers = await admin.auth().listUsers();
     let squad = {};
-    listUsers.users.forEach(user => {
+    listUsers.users.forEach((user: UserRecord) => {
       const customClaims = (user.customClaims || { pushToken: "" }) as {
         pushToken?: string;
       };
