@@ -4,7 +4,7 @@ import * as admin from "firebase-admin";
 enum Availability {
   YES = 1 << 0,
   NO = 1 << 1,
-  NOTRESPONDED = 1 << 2
+  NOTRESPONDED = 1 << 2,
 }
 export async function getUpcomingMatchDetails(req: Request, res: Response) {
   try {
@@ -16,8 +16,7 @@ export async function getUpcomingMatchDetails(req: Request, res: Response) {
       .where(
         "matchDateWithFormat",
         ">",
-        admin.firestore.Timestamp.now()
-          .toDate()
+        admin.firestore.Timestamp.now().toDate()
       )
       .orderBy("matchDateWithFormat", "asc")
       .limit(1)
@@ -27,7 +26,7 @@ export async function getUpcomingMatchDetails(req: Request, res: Response) {
     }
 
     const allMatches: { [key: string]: any } = {};
-    upcomingMatch.forEach(doc => {
+    upcomingMatch.forEach((doc: { data: () => any; id: string | number }) => {
       const data = doc.data();
       allMatches[doc.id] = {
         status: data.status,
@@ -37,15 +36,17 @@ export async function getUpcomingMatchDetails(req: Request, res: Response) {
         id: data.id,
         venue: data.venue,
         opponent: data.opponent,
-        myStatus: data.squad[uid] ? data.squad[uid].status : 1 << 2
+        myStatus: data.squad[uid] ? data.squad[uid].status : 1 << 2,
+        totalSquad: data.squad,
       };
     });
+    console.log(JSON.stringify(allMatches));
     return res.status(200).send({
       match: allMatches,
-      count: 1
+      count: 1,
     });
   } catch (err) {
-    console.log(err)
+    console.log(err);
     return handleError(res, err);
   }
 }
@@ -59,7 +60,7 @@ export async function getUnreadMatchCount(req: Request, res: Response) {
       return res.status(200).send({ count: 0 });
     }
     let count = 0;
-    listMatches.forEach(doc => {
+    listMatches.forEach((doc: { data: () => any }) => {
       const data = doc.data();
       data.squad[id].status === Availability.NOTRESPONDED && count++;
     });
@@ -86,9 +87,9 @@ export async function patchUserStatus(req: Request, res: Response) {
         ...matchDetails?.squad,
         [uid]: {
           ...matchDetails?.squad[uid],
-          status
-        }
-      }
+          status,
+        },
+      },
     });
     console.log(updateResult.writeTime);
     return res.status(204).send({ message: `Updated match details` });
