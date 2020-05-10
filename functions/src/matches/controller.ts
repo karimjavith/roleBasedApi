@@ -13,7 +13,7 @@ type TMessage = {
 enum Availability {
   YES = 1 << 0,
   NO = 1 << 1,
-  NOTRESPONDED = 1 << 2
+  NOTRESPONDED = 1 << 2,
 }
 
 async function sendPushNotification(message: TMessage) {
@@ -32,14 +32,15 @@ async function sendPushNotification(message: TMessage) {
     });
     const db = await admin.firestore();
     const date = admin.firestore.Timestamp.now().toDate();
-    const docId = `${date.getDate()}${date.getMonth() +
-      1}${date.getFullYear()}${date.getUTCHours()}${date.getUTCMinutes()}`;
+    const docId = `${date.getDate()}${
+      date.getMonth() + 1
+    }${date.getFullYear()}${date.getUTCHours()}${date.getUTCMinutes()}`;
     const pushLogs = await db
       .collection("pushLogs")
       .doc(docId)
       .set({
         failedTokens: failedTokens,
-        messageId: messageId || "not available"
+        messageId: messageId || "not available",
       });
     console.log(pushLogs.writeTime);
     console.log("List of tokens that caused failures: " + failedTokens);
@@ -53,10 +54,18 @@ export async function create(req: Request, res: Response) {
     if (!venue || !date || !time || !opponent) {
       return res.status(400).send({ message: "Insufficient fields" });
     }
-    const matchDateWithFormat = new Date(date.split('/')[0], date.split('/')[1], date.split('/')[2])
+    const matchDateWithFormat = new Date(
+      date.split("/")[0],
+      date.split("/")[1],
+      date.split("/")[2]
+    );
     const data = {
-      id:
-        `${new Date(date).toLocaleDateString().replace(/-/g, "")}${time.replace(/:/g, "")}${opponent.replace(/\s/g, "")}`,
+      id: `${new Date(date)
+        .toLocaleDateString()
+        .replace(/-/g, "")}${time.replace(/:/g, "")}${opponent.replace(
+        /\s/g,
+        ""
+      )}`,
       venue,
       date,
       matchDateWithFormat,
@@ -64,18 +73,14 @@ export async function create(req: Request, res: Response) {
       time,
       status,
       opponent,
-      createdTime: admin.firestore.Timestamp.now()
-        .toDate()
-        .toUTCString(),
-      updatedTime: admin.firestore.Timestamp.now()
-        .toDate()
-        .toUTCString()
+      createdTime: admin.firestore.Timestamp.now().toDate().toUTCString(),
+      updatedTime: admin.firestore.Timestamp.now().toDate().toUTCString(),
     };
 
     // getUsersToken
     const listUsers = await admin.auth().listUsers();
     let squad = {};
-    listUsers.users.forEach(user => {
+    listUsers.users.forEach((user) => {
       const customClaims = (user.customClaims || { pushToken: "" }) as {
         pushToken?: string;
       };
@@ -85,8 +90,8 @@ export async function create(req: Request, res: Response) {
         [user.uid]: {
           pushToken,
           status: Availability.NOTRESPONDED,
-          displayName: user.displayName
-        }
+          displayName: user.displayName,
+        },
       };
     });
 
@@ -108,9 +113,9 @@ export async function create(req: Request, res: Response) {
       const message = {
         notification: {
           title: `Camels vs. ${opponent}`,
-          body: "Set your availability."
+          body: "Set your availability.",
         },
-        tokens: registrationTokens
+        tokens: registrationTokens,
       };
 
       await sendPushNotification(message);
@@ -143,7 +148,7 @@ export async function all(req: Request, res: Response) {
       return res.status(200).send({ count: 0 });
     }
     const allMatches: { [key: string]: any } = {};
-    listMatches.forEach(doc => {
+    listMatches.forEach((doc) => {
       const data = doc.data();
       allMatches[doc.id] = {
         status: data.status,
@@ -153,12 +158,13 @@ export async function all(req: Request, res: Response) {
         id: data.id,
         venue: data.venue,
         opponent: data.opponent,
-        myStatus: data.squad[id] ? data.squad[id].status : 1 << 2
+        myStatus: data.squad[id] ? data.squad[id].status : 1 << 2,
+        totalSquad: data.squad,
       };
     });
     return res.status(200).send({
       data: allMatches,
-      count: listMatches.docs.length
+      count: listMatches.docs.length,
     });
   } catch (err) {
     return handleError(res, err);
@@ -187,8 +193,8 @@ export async function getMatchDetailsForUser(req: Request, res: Response) {
         myStatus: matchDetails?.squad[uid]
           ? matchDetails?.squad[uid].status
           : 1 << 2,
-        squad: null
-      }
+        squad: null,
+      },
     });
   } catch (err) {
     return handleError(res, err);
@@ -204,7 +210,7 @@ export async function getUnreadMatchCount(req: Request, res: Response) {
       return res.status(200).send({ count: 0 });
     }
     let count = 0;
-    listMatches.forEach(doc => {
+    listMatches.forEach((doc) => {
       const data = doc.data();
       data.squad[id].status === Availability.NOTRESPONDED && count++;
     });
@@ -231,9 +237,7 @@ export async function patch(req: Request, res: Response) {
       time,
       status,
       opponent,
-      updatedTime: admin.firestore.Timestamp.now()
-        .toDate()
-        .toUTCString()
+      updatedTime: admin.firestore.Timestamp.now().toDate().toUTCString(),
     });
     // getUsersToken
     const listUsers = await admin.auth().listUsers();
@@ -249,9 +253,9 @@ export async function patch(req: Request, res: Response) {
     const message = {
       notification: {
         title: `Camels vs. ${opponent}`,
-        body: "Updated! Set your availability."
+        body: "Updated! Set your availability.",
       },
-      tokens
+      tokens,
     };
 
     await sendPushNotification(message);
@@ -278,9 +282,9 @@ export async function patchUserStatus(req: Request, res: Response) {
         ...matchDetails?.squad,
         [uid]: {
           ...matchDetails?.squad[uid],
-          status
-        }
-      }
+          status,
+        },
+      },
     });
     console.log(updateResult.writeTime);
     return res.status(204).send({ message: `Updated match details` });
@@ -293,10 +297,7 @@ export async function remove(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const db = await admin.firestore();
-    const deleteResult = await db
-      .collection("matches")
-      .doc(id)
-      .delete();
+    const deleteResult = await db.collection("matches").doc(id).delete();
     console.log(deleteResult.writeTime);
     return res.status(204).send({});
   } catch (err) {
