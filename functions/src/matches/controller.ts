@@ -35,15 +35,13 @@ async function sendPushNotification(message: TMessage) {
     const docId = `${date.getDate()}${
       date.getMonth() + 1
     }${date.getFullYear()}${date.getUTCHours()}${date.getUTCMinutes()}`;
-    const pushLogs = await db
+    await db
       .collection("pushLogs")
       .doc(docId)
       .set({
         failedTokens: failedTokens,
         messageId: messageId || "not available",
       });
-    console.log(pushLogs.writeTime);
-    console.log("List of tokens that caused failures: " + failedTokens);
   }
 }
 
@@ -77,10 +75,11 @@ export async function create(req: Request, res: Response) {
       updatedTime: admin.firestore.Timestamp.now().toDate().toUTCString(),
     };
 
+    const db = await admin.firestore();
     // getUsersToken
     const listUsers = await admin.auth().listUsers();
     let squad = {};
-    listUsers.users.forEach((user) => {
+    listUsers.users.forEach(async (user) => {
       const customClaims = (user.customClaims || { pushToken: "" }) as {
         pushToken?: string;
       };
@@ -95,13 +94,11 @@ export async function create(req: Request, res: Response) {
       };
     });
 
-    const db = await admin.firestore();
     try {
-      const setDoc = await db
+      await db
         .collection("matches")
         .doc(data.id)
         .set({ ...data, squad });
-      console.log(setDoc.writeTime);
       const tokens = Object.values(squad).map(
         (result: any) => result.pushToken
       );
@@ -170,13 +167,33 @@ export async function all(req: Request, res: Response) {
     return handleError(res, err);
   }
 }
+
 export async function get(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const db = await admin.firestore();
-    const matchDoc = await db.collection("matches").doc(id);
-    const matchDetails = await (await matchDoc.get()).data();
-    return res.status(200).send({ data: matchDetails });
+    const db = admin.firestore();
+    const matchDoc = db.collection("matches").doc(id);
+    const matchDetails = (await matchDoc.get()).data();
+    const profileCol = await db.collection("profile").get();
+    let updatedSquad: { [key: string]: any } = matchDetails?.squad;
+    const updatedSquadPromise = new Promise<boolean>((response) => {
+      if (matchDetails) {
+        Object.keys(matchDetails.squad).forEach((user: any) => {
+          const profileDoc = profileCol.docs.find((x) => x.id === user);
+          const profileDetails = profileDoc?.data();
+          updatedSquad = {
+            ...updatedSquad,
+            [user]: { ...updatedSquad[user], type: profileDetails?.type },
+          };
+        });
+        response(true);
+      }
+      response(true);
+    });
+    await updatedSquadPromise;
+    return res
+      .status(200)
+      .send({ data: { ...matchDetails, squad: updatedSquad } });
   } catch (err) {
     return handleError(res, err);
   }
@@ -277,7 +294,7 @@ export async function patchUserStatus(req: Request, res: Response) {
     const matchDoc = await db.collection("matches").doc(id);
 
     const matchDetails = await (await matchDoc.get()).data();
-    const updateResult = await matchDoc.update({
+    await matchDoc.update({
       squad: {
         ...matchDetails?.squad,
         [uid]: {
@@ -286,7 +303,6 @@ export async function patchUserStatus(req: Request, res: Response) {
         },
       },
     });
-    console.log(updateResult.writeTime);
     return res.status(204).send({ message: `Updated match details` });
   } catch (err) {
     return handleError(res, err);
@@ -297,8 +313,7 @@ export async function remove(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const db = await admin.firestore();
-    const deleteResult = await db.collection("matches").doc(id).delete();
-    console.log(deleteResult.writeTime);
+    await db.collection("matches").doc(id).delete();
     return res.status(204).send({});
   } catch (err) {
     return handleError(res, err);
