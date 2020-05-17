@@ -40,13 +40,11 @@ export async function getUpcomingMatchDetails(req: Request, res: Response) {
         totalSquad: data.squad,
       };
     });
-    console.log(JSON.stringify(allMatches));
     return res.status(200).send({
       match: allMatches,
       count: 1,
     });
   } catch (err) {
-    console.log(err);
     return handleError(res, err);
   }
 }
@@ -82,7 +80,7 @@ export async function patchUserStatus(req: Request, res: Response) {
     const matchDoc = await db.collection("matches").doc(id);
 
     const matchDetails = await (await matchDoc.get()).data();
-    const updateResult = await matchDoc.update({
+    await matchDoc.update({
       squad: {
         ...matchDetails?.squad,
         [uid]: {
@@ -91,7 +89,6 @@ export async function patchUserStatus(req: Request, res: Response) {
         },
       },
     });
-    console.log(updateResult.writeTime);
     return res.status(204).send({ message: `Updated match details` });
   } catch (err) {
     return handleError(res, err);

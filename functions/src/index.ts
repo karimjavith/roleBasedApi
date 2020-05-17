@@ -4,6 +4,7 @@ import * as express from "express";
 import * as cors from "cors";
 import * as bodyParser from "body-parser";
 import { routesConfig as userRoutes } from "./users/routes-config";
+import { routesConfig as profileRoutes } from "./profile/routes-config";
 import { routesConfig as matchesRoutes } from "./matches/routes-config";
 import { routesConfig as homeRoutes } from "./home/routes-config";
 import { Roles } from "./auth/authorized";
@@ -15,6 +16,7 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cors({ origin: true }));
 userRoutes(app);
+profileRoutes(app);
 matchesRoutes(app);
 homeRoutes(app);
 export const api = functions.https.onRequest(app);
@@ -25,12 +27,11 @@ const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: "karim.dev.2020@gmail.com",
-    pass: "<karimdev2020/>"
-  }
+    pass: "<karimdev2020/>",
+  },
 });
 export const sendMailForFunctions = functions.https.onCall(
   async (data, context) => {
-    console.log(data);
     const dest = data.email;
 
     const mailOptions = {
@@ -41,7 +42,7 @@ export const sendMailForFunctions = functions.https.onCall(
                    <br />
                    <p>Please click on the below link to sign up for Camel 2020</p>
                    <a href="${data.link}">Sign up</a>
-               ` // email content in HTML
+               `, // email content in HTML
     };
 
     // returning result
@@ -53,16 +54,14 @@ export const sendMailForFunctions = functions.https.onCall(
       if (decodedToken.role === Roles.Admin) {
         transporter.sendMail(mailOptions, async (error: any, info: any) => {
           if (error) {
-            console.log(error);
             reject({
               message: error,
-              isError: true
+              isError: true,
             });
           }
-          console.log("Email sent");
           resolve({
             message: "Email sent!!",
-            isError: false
+            isError: false,
           });
         });
       } else {
@@ -70,7 +69,7 @@ export const sendMailForFunctions = functions.https.onCall(
         reject({
           status: 400,
           isError: true,
-          message: "You are not authorised to send invite"
+          message: "You are not authorised to send invite",
         });
       }
     });
