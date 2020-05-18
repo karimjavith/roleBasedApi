@@ -25,9 +25,9 @@ export async function patch(req: Request, res: Response) {
     const db = admin.firestore();
     const profileDetails = db.collection("profile").doc(id);
     await profileDetails.update({
-      type,
+      type: { ...type },
     });
-    return res.status(204).send({ profileDetails });
+    return res.status(204).send({ type });
   } catch (err) {
     return handleError(res, err);
   }
